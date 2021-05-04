@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: graylog-config
-  namespace: staging
+  namespace: logging
   labels:
     app: graylog-app
 data:
