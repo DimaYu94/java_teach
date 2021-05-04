@@ -1,0 +1,103 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: graylog-config
+  namespace: logging
+  labels:
+    app: graylog-app
+data:
+  GRAYLOG_REST_LISTEN_URI: "http://0.0.0.0:9000/api/"
+  GRAYLOG_WEB_LISTEN_URI: "http://0.0.0.0:9000/"
+  GRAYLOG_WEB_ENDPOINT_URI: "https://graylog.domain.com/api/"
+  GRAYLOG_PASSWORD_SECRET: "0JKrvpOPrAxH2GDlnZEc0hOcLPLxqMlacCxQnJOB7QOvA2S8AEaZWZtYJoXzIYTnkW9sDyuVwn4xwd8y"
+  GRAYLOG_ROOT_PASSWORD_SHA2: "65e84be33532fb784c48129675f9eff3a682b27168c0ea744b2cf58ee02337c5"
+  GRAYLOG_MONGODB_URI: "mongodb://mongodb-main/graylog"
+  GRAYLOG_MESSAGE_JOURNAL_ENABLED: "false"
+  GRAYLOG_ELASTICSEARCH_HOSTS: "http://elasticsearch:9200"
+  GRAYLOG_ELASTICSEARCH_DISCOVERY_ENABLED: "true"
+  GRAYLOG_ROOT_TIMEZONE: "Europe/Kiev"
+ 
+---
+ 
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graylog-app
+  namespace: logging
+  labels:
+    app: graylog-app
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: graylog-app
+  strategy:
+    type: RollingUpdate
+  progressDeadlineSeconds: 300
+  template:
+    metadata:
+      labels:
+        app: graylog-app
+    spec:
+      containers:
+      - image: graylog/graylog:2.4
+        name: graylog
+        imagePullPolicy: "IfNotPresent"
+        ports:
+          - containerPort: 9000
+          - containerPort: 12201
+          - containerPort: 514
+        envFrom:
+            - configMapRef:
+                name: graylog-config
+      nodeSelector:
+        nodegroup: logging
+ 
+---
+ 
+apiVersion: v1
+kind: Service
+metadata:
+  name: graylog-svc
+  namespace: logging
+spec:
+  ports:
+  - name: web
+    port: 9000
+    protocol: TCP
+  - name: gelf
+    port: 12201
+    protocol: UDP
+  - name: syslog
+    port: 514
+    protocol: UDP
+  selector:
+    app: graylog-app
+ 
+---
+ 
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: graylog-ing
+  namespace: logging
+  annotations:
+    kubernetes.io/ingress.class: ingress-logging
+    certmanager.k8s.io/cluster-issuer: letsencrypt-production
+    certmanager.k8s.io/acme-challenge-type: dns01
+    certmanager.k8s.io/acme-dns01-provider: dns
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+spec:
+  tls:
+  - hosts:
+    - graylog.domain.com
+    secretName: graylog.domain.com-secret-tls
+  rules:
+  - host: graylog.domain.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: graylog-svc
+          servicePort: 9000
