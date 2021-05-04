@@ -82,7 +82,7 @@ metadata:
   name: graylog-ing
   namespace: logging
   annotations:
-    kubernetes.io/ingress.class: ingress-staging
+    kubernetes.io/ingress.class: ingress-logging
     certmanager.k8s.io/cluster-issuer: letsencrypt-production
     certmanager.k8s.io/acme-challenge-type: dns01
     certmanager.k8s.io/acme-dns01-provider: dns
